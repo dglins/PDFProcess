@@ -15,7 +15,7 @@ class PDFProcessor:
         :param pdf_file_path: Path to the PDF file to process.
         :param csv_file_path: Path to the CSV file to write the results.
         :param regexes: Dictionary of regex patterns, where keys will be used as field names in the namedtuple.
-        :param delimiter_field: Optional. Field name that, when matched, triggers the saving of the current record and starts a new block. Default is 'devedora'.
+        :param delimiter_field: Optional. Field name that, when matched, triggers the saving of the current record and starts a new block. Default is None.
         """
         self.pdf_file_path = pdf_file_path
         self.csv_file_path = csv_file_path
