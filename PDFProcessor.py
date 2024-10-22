@@ -7,18 +7,20 @@ from tqdm import tqdm
 
 class PDFProcessor:
     def __init__(self, pdf_file_path: str, csv_file_path: str = 'output.csv', regexes: Dict[str, Pattern] = None,
-                 first_find: Optional[str] = None):
+                 required_fields: Optional[list] = None):
         """
         Initialize the PDF processor with file paths and regular expressions.
 
         :param pdf_file_path: Path to the PDF file to process.
         :param csv_file_path: Path to the CSV file to write the results.
         :param regexes: Dictionary of regex patterns, where keys will be used as field names in the namedtuple.
-        :param first_find: Optional. Field name of the first regex group that, when matched, triggers the saving of the current record.
+        :param required_fields: List of fields that must be non-null for the record to be considered complete.
         """
         self.pdf_file_path = pdf_file_path
         self.csv_file_path = csv_file_path
         self.regex_mode_enabled = regexes is not None
+        self.required_fields = required_fields if required_fields else []
+
 
         if self.regex_mode_enabled:
             # Compile regexes inside the constructor if provided
@@ -37,18 +39,10 @@ class PDFProcessor:
             # Create the namedtuple dynamically using regex dictionary keys as field names
             self.Line = namedtuple('Line', field_names)
             self.empty_record = self.Line(*([None] * len(self.Line._fields)))
-
-            # Set first_find to the first group of the first regex if not provided
-            if first_find is None:
-                first_regex_field = next(iter(self.regexes))  # Get the first key (field)
-                first_find = f"{first_regex_field}_1" if re.compile(self.regexes[first_regex_field]).groups > 1 else first_regex_field
-
-            self.first_find = first_find
         else:
             self.regexes = None
             self.Line = None
             self.empty_record = None
-            self.first_find = None
 
     def compile_regexes(self, regex_dict: Dict[str, str]) -> Dict[str, re.Pattern]:
         """
@@ -59,34 +53,6 @@ class PDFProcessor:
         """
         return {field: re.compile(pattern) for field, pattern in regex_dict.items()}
 
-    def process_pdf(self) -> None:
-        """
-        Process the PDF and write the data directly to CSV line by line.
-        """
-        if not self.regex_mode_enabled:
-            raise RuntimeError("Cannot process PDF without regex. Use 'preview_regex_try' for manual inspection.")
-
-        with pymupdf.open(self.pdf_file_path) as doc, open(self.csv_file_path, mode='w', newline='',
-                                                           encoding='utf-8') as csvfile:
-            csv_writer = csv.writer(csvfile)
-            csv_writer.writerow(self.Line._fields)
-            record = self.empty_record
-
-            for page in tqdm(doc, total=len(doc), desc="Processing PDF", unit="page"):
-                text = page.get_text("text", sort=True)
-                for line in text.split('\n'):
-                    record = self.extract_data_from_line(line, record)
-                    # Clean up the record by normalizing spaces
-                    record = self.parse_record(record)
-                    # If the first_find is found, save the record and reset
-                    if self.first_find and getattr(record, self.first_find):
-                        csv_writer.writerow(record)
-                        record = self.empty_record
-
-            # Write any remaining record if the last page doesn't end with a delimiter match
-            if record != self.empty_record:
-                csv_writer.writerow(record)
-
     def parse_record(self, record: namedtuple) -> namedtuple:
         """
         Normalize spaces in each field of the record by collapsing multiple spaces into one.
@@ -95,6 +61,46 @@ class PDFProcessor:
             field: re.sub(r'\s+', ' ', str(getattr(record, field))).strip() if getattr(record, field) else None
             for field in record._fields}
         return record._replace(**cleaned_values)
+
+    def process_pdf(self) -> None:
+        """
+        Process the PDF and write the data directly to CSV line by line.
+        """
+        if not self.regex_mode_enabled:
+            raise RuntimeError("Cannot process PDF without regex. Use 'preview_regex_try' for manual inspection.")
+
+        with pymupdf.open(self.pdf_file_path) as doc, open(self.csv_file_path, mode='w', newline='',
+                                                        encoding='utf-8') as csvfile:
+            csv_writer = csv.writer(csvfile)
+            csv_writer.writerow(self.Line._fields)
+            record = self.empty_record
+
+            for page in tqdm(doc, total=len(doc), desc="Processing PDF", unit="page"):
+                text = page.get_text("text", sort=True)
+
+                for line in text.splitlines():
+                    # Process the extracted text
+                    record = self.extract_data_from_line(line, record)
+                    
+                    # Check if the record is ready to be written (last relevant field is filled)
+                    if self.is_record_complete(record):
+                        record = self.parse_record(record) 
+                        csv_writer.writerow(record)
+                        record = self.empty_record  # Reset for the next block
+
+            # Write any remaining record if the last page doesn't end with a complete record
+            if record != self.empty_record:
+                csv_writer.writerow(record)
+
+    def is_record_complete(self, record: namedtuple) -> bool:
+        """
+        Check if the record is complete by verifying that all required fields are non-null.
+        """
+        # Check if all required fields are non-null
+        return all(getattr(record, field) for field in self.required_fields)
+
+
+
 
     def extract_data_from_line(self, line: str, record: namedtuple) -> namedtuple:
         """
@@ -105,12 +111,13 @@ class PDFProcessor:
             if match := regex.search(line):
                 groups = match.groups()
                 if len(groups) == 1:
-                    # Single group, map directly
+                    # Single group, map directly to the field
                     record = record._replace(**{field: groups[0]})
                 else:
-                    # If there are multiple groups, assign each to corresponding field
+                    # Multiple groups, map to corresponding fields with suffixes
                     record = record._replace(**{f"{field}_{i + 1}": group for i, group in enumerate(groups)})
         return record
+
 
     def preview_regex_try(self, page_from_to: Tuple[int, int] = (0, 5), match_type: str = 'both') -> None:
         """
@@ -147,4 +154,3 @@ class PDFProcessor:
                             elif not match and match_type in ['fail', 'both']:
                                 print(f"\nProcessing line: {line}")
                                 print(f"Field '{field}' did not match.")
-
