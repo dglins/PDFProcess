@@ -70,7 +70,8 @@ class PDFProcessor:
             for page in tqdm(doc, total=len(doc), desc="Processing PDF", unit="page"):
                 text = page.get_text("text", sort=True)
                 record = self.extract_data_from_line(text, record)
-
+                # Clean up the record by normalizing spaces
+                record = self.parse_record(record)
                 # If the delimiter is found, save the record and reset
                 if self.delimiter_field and getattr(record, self.delimiter_field):
                     csv_writer.writerow(record)
@@ -80,6 +81,15 @@ class PDFProcessor:
             if record != self.empty_record:
                 csv_writer.writerow(record)
 
+    def parse_record(self, record: namedtuple) -> namedtuple:
+        """
+        Normalize spaces in each field of the record by collapsing multiple spaces into one.
+        """
+        cleaned_values = {
+            field: re.sub(r'\s+', ' ', str(getattr(record, field))).strip() if getattr(record, field) else None
+            for field in record._fields}
+        return record._replace(**cleaned_values)
+
     def extract_data_from_line(self, line: str, record: namedtuple) -> namedtuple:
         """
         Check each regex against the line and update the record accordingly.
@@ -87,7 +97,7 @@ class PDFProcessor:
         """
         for field, regex in self.regexes.items():
             if match := regex.search(line):
-                groups = match.groups() 
+                groups = match.groups()
                 if len(groups) == 1:
                     # Single group, map directly
                     record = record._replace(**{field: groups[0]})
@@ -99,20 +109,20 @@ class PDFProcessor:
     def preview_regex_try(self, page_from_to: Tuple[int, int] = (0, 5), match_type: str = 'both') -> None:
         """
         Preview the output of the regex patterns on the specified pages, allowing filtering for success, failure, or both.
-    
+
         :param page_from_to: A tuple indicating the range of pages to apply regex (inclusive).
         :param match_type: Specifies the type of match to display ('success', 'fail', 'both').
         """
         if match_type not in ['success', 'fail', 'both']:
             raise ValueError("The 'match_type' parameter must be 'success', 'fail', or 'both'.")
-    
+
         with pymupdf.open(self.pdf_file_path) as doc:
             for page_number in range(page_from_to[0], min(page_from_to[1], len(doc))):
                 page = doc.load_page(page_number)
                 text = page.get_text("text", sort=True)
-    
+
                 print(f"\n\n--- Preview of Page {page_number + 1} ---\n")
-    
+
                 if not self.regex_mode_enabled:
                     # If regex is not enabled, just print the text for analysis
                     print(text)
@@ -121,7 +131,7 @@ class PDFProcessor:
                     for line in text.split('\n'):
                         for field, regex in self.regexes.items():
                             match = regex.search(line)
-    
+
                             if match and match_type in ['success', 'both']:
                                 groups = match.groups()  # Capture all groups
                                 print(f"\nProcessing line: {line}")
