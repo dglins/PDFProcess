@@ -74,13 +74,14 @@ class PDFProcessor:
 
             for page in tqdm(doc, total=len(doc), desc="Processing PDF", unit="page"):
                 text = page.get_text("text", sort=True)
-                record = self.extract_data_from_line(text, record)
-                # Clean up the record by normalizing spaces
-                record = self.parse_record(record)
-                # If the first_find is found, save the record and reset
-                if self.first_find and getattr(record, self.first_find):
-                    csv_writer.writerow(record)
-                    record = self.empty_record
+                for line in text.split('\n'):
+                    record = self.extract_data_from_line(line, record)
+                    # Clean up the record by normalizing spaces
+                    record = self.parse_record(record)
+                    # If the first_find is found, save the record and reset
+                    if self.first_find and getattr(record, self.first_find):
+                        csv_writer.writerow(record)
+                        record = self.empty_record
 
             # Write any remaining record if the last page doesn't end with a delimiter match
             if record != self.empty_record:
