@@ -49,6 +49,7 @@ Test your regular expressions on specific pages of the PDF to ensure they work a
 
 ```python
 # Preview regex matches on specific pages (from page 0 to page 5, in this case)
+# match_type can be success, fail and both
 processor.preview_regex_try(page_from_to=(0, 5), match_type='both')
 ```
 
