@@ -40,7 +40,7 @@ processor = PDFProcessor(
     pdf_file_path=pdf_file_path,
     csv_file_path=csv_file_path,
     regexes=regexes,
-    delimiter_field='process'
+    first_find='process' #name of the regex key. [OPTIONAL]
 )
 ```
 
