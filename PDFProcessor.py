@@ -5,6 +5,7 @@ from collections import namedtuple
 from typing import Dict, Pattern, Optional, Tuple
 from tqdm import tqdm
 
+
 class PDFProcessor:
     def __init__(self, pdf_file_path: str, csv_file_path: str = 'output.csv', regexes: Dict[str, Pattern] = None,
                  delimiter_field: Optional[str] = None):
@@ -23,7 +24,16 @@ class PDFProcessor:
         if self.regex_mode_enabled:
             # Compile regexes inside the constructor if provided
             self.regexes = self.compile_regexes(regexes)
-            field_names = list(self.regexes.keys())
+
+            # Dynamically create the field names for namedtuple
+            field_names = []
+            for field, regex in self.regexes.items():
+                num_groups = re.compile(regex).groups
+                if num_groups == 1:
+                    field_names.append(field)  # Single field name
+                else:
+                    # Create field names with suffixes for multiple groups
+                    field_names.extend([f"{field}_{i + 1}" for i in range(num_groups)])
 
             # Create the namedtuple dynamically using regex dictionary keys as field names
             self.Line = namedtuple('Line', field_names)
@@ -59,8 +69,6 @@ class PDFProcessor:
 
             for page in tqdm(doc, total=len(doc), desc="Processing PDF", unit="page"):
                 text = page.get_text("text", sort=True)
-
-
                 record = self.extract_data_from_line(text, record)
 
                 # If the delimiter is found, save the record and reset
@@ -75,13 +83,17 @@ class PDFProcessor:
     def extract_data_from_line(self, line: str, record: namedtuple) -> namedtuple:
         """
         Check each regex against the line and update the record accordingly.
+        Handles regex with multiple groups.
         """
-        if not self.regex_mode_enabled:
-            raise RuntimeError("Cannot extract data without regex. Use 'preview_regex_try' for manual inspection.")
-
         for field, regex in self.regexes.items():
             if match := regex.search(line):
-                record = record._replace(**{field: match.group(1)})
+                groups = match.groups() 
+                if len(groups) == 1:
+                    # Single group, map directly
+                    record = record._replace(**{field: groups[0]})
+                else:
+                    # If there are multiple groups, assign each to corresponding field
+                    record = record._replace(**{f"{field}_{i + 1}": group for i, group in enumerate(groups)})
         return record
 
     def preview_regex_try(self, page_from_to: Tuple[int, int] = (0, 5), match_type: str = 'both') -> None:
