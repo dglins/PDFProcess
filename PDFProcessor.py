@@ -99,20 +99,20 @@ class PDFProcessor:
     def preview_regex_try(self, page_from_to: Tuple[int, int] = (0, 5), match_type: str = 'both') -> None:
         """
         Preview the output of the regex patterns on the specified pages, allowing filtering for success, failure, or both.
-
+    
         :param page_from_to: A tuple indicating the range of pages to apply regex (inclusive).
         :param match_type: Specifies the type of match to display ('success', 'fail', 'both').
         """
         if match_type not in ['success', 'fail', 'both']:
             raise ValueError("The 'match_type' parameter must be 'success', 'fail', or 'both'.")
-
+    
         with pymupdf.open(self.pdf_file_path) as doc:
             for page_number in range(page_from_to[0], min(page_from_to[1], len(doc))):
                 page = doc.load_page(page_number)
                 text = page.get_text("text", sort=True)
-
+    
                 print(f"\n\n--- Preview of Page {page_number + 1} ---\n")
-
+    
                 if not self.regex_mode_enabled:
                     # If regex is not enabled, just print the text for analysis
                     print(text)
@@ -121,10 +121,13 @@ class PDFProcessor:
                     for line in text.split('\n'):
                         for field, regex in self.regexes.items():
                             match = regex.search(line)
-
+    
                             if match and match_type in ['success', 'both']:
+                                groups = match.groups()  # Capture all groups
                                 print(f"\nProcessing line: {line}")
-                                print(f"Matched field '{field}': {match.group(1)}")
+                                print(f"Matched field '{field}':")
+                                for i, group in enumerate(groups, 1):
+                                    print(f"  Group {i}: {group}")
                             elif not match and match_type in ['fail', 'both']:
                                 print(f"\nProcessing line: {line}")
                                 print(f"Field '{field}' did not match.")
