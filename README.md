@@ -34,13 +34,13 @@ regexes = {
 ### 3. Initialize the `PDFProcessor`
 
 ```python
-# Initialize the PDFProcessor with the file paths, regexes, and a delimiter field
+# Initialize the PDFProcessor with the file paths, regexes, and a required field
 # Note that you only need the pdf_file_path to initialize the preview_regex_try()
 processor = PDFProcessor(
     pdf_file_path=pdf_file_path,
     csv_file_path=csv_file_path,
     regexes=regexes,
-    first_find='process' #name of the regex key. [OPTIONAL]
+    required_fields=["process"]
 )
 ```
 
