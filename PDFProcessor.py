@@ -5,17 +5,16 @@ from collections import namedtuple
 from typing import Dict, Pattern, Optional, Tuple
 from tqdm import tqdm
 
-
 class PDFProcessor:
     def __init__(self, pdf_file_path: str, csv_file_path: str = 'output.csv', regexes: Dict[str, Pattern] = None,
-                 delimiter_field: Optional[str] = None):
+                 first_find: Optional[str] = None):
         """
         Initialize the PDF processor with file paths and regular expressions.
 
         :param pdf_file_path: Path to the PDF file to process.
         :param csv_file_path: Path to the CSV file to write the results.
         :param regexes: Dictionary of regex patterns, where keys will be used as field names in the namedtuple.
-        :param delimiter_field: Optional. Field name that, when matched, triggers the saving of the current record and starts a new block. Default is None.
+        :param first_find: Optional. Field name of the first regex group that, when matched, triggers the saving of the current record.
         """
         self.pdf_file_path = pdf_file_path
         self.csv_file_path = csv_file_path
@@ -38,12 +37,18 @@ class PDFProcessor:
             # Create the namedtuple dynamically using regex dictionary keys as field names
             self.Line = namedtuple('Line', field_names)
             self.empty_record = self.Line(*([None] * len(self.Line._fields)))
-            self.delimiter_field = delimiter_field
+
+            # Set first_find to the first group of the first regex if not provided
+            if first_find is None:
+                first_regex_field = next(iter(self.regexes))  # Get the first key (field)
+                first_find = f"{first_regex_field}_1" if re.compile(self.regexes[first_regex_field]).groups > 1 else first_regex_field
+
+            self.first_find = first_find
         else:
             self.regexes = None
             self.Line = None
             self.empty_record = None
-            self.delimiter_field = None
+            self.first_find = None
 
     def compile_regexes(self, regex_dict: Dict[str, str]) -> Dict[str, re.Pattern]:
         """
@@ -72,8 +77,8 @@ class PDFProcessor:
                 record = self.extract_data_from_line(text, record)
                 # Clean up the record by normalizing spaces
                 record = self.parse_record(record)
-                # If the delimiter is found, save the record and reset
-                if self.delimiter_field and getattr(record, self.delimiter_field):
+                # If the first_find is found, save the record and reset
+                if self.first_find and getattr(record, self.first_find):
                     csv_writer.writerow(record)
                     record = self.empty_record
 
@@ -141,3 +146,4 @@ class PDFProcessor:
                             elif not match and match_type in ['fail', 'both']:
                                 print(f"\nProcessing line: {line}")
                                 print(f"Field '{field}' did not match.")
+
