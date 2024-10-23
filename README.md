@@ -29,7 +29,11 @@ Create a dictionary with the regular expressions you want to use to extract fiel
 regexes = {
     'process': r'\s+(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})'
 }
+required_fields=["process"]
 ```
+### Importance of the required_fields
+The required fields are critical for ensuring that the output CSV contains essential data on every row. When processing PDFs, not all lines or sections may contain complete information, leading to potential gaps in the final CSV. The required fields ensure that specific, essential pieces of information are always extracted and present in the output.
+
 ### Example of Regular Expression Usage:
 Given the regular expression `regexes = {'first_col': r"exemple (\d+) splomx (.+)"}`, the system will:
 
@@ -46,12 +50,9 @@ processor = PDFProcessor(
     pdf_file_path=pdf_file_path,
     csv_file_path=csv_file_path,
     regexes=regexes,
-    required_fields=["process"]
+    required_fields=required_fields
 )
 ```
-
-### Importance of the required_fields
-The required fields are critical for ensuring that the output CSV contains essential data on every row. When processing PDFs, not all lines or sections may contain complete information, leading to potential gaps in the final CSV. The required fields ensure that specific, essential pieces of information are always extracted and present in the output.
 
 ### 4. Test the regular expressions
 
