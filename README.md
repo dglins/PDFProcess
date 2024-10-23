@@ -30,6 +30,12 @@ regexes = {
     'process': r'\s+(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})'
 }
 ```
+### Example of Regular Expression Usage:
+Given the regular expression `regexes = {first_col: r"exemple (\d+) splomx (.+)"}`, the system will:
+
+Capture the first group `(\d+)` as `first_col_1`.
+Capture the second group `(.+)` as `first_col_2`.
+For each match in the PDF, these fields will be automatically created and populated, ensuring the data is exported in a structured and organized format.
 
 ### 3. Initialize the `PDFProcessor`
 
@@ -43,6 +49,9 @@ processor = PDFProcessor(
     required_fields=["process"]
 )
 ```
+
+### Importance of the required_fields
+The required fields are critical for ensuring that the output CSV contains essential data on every row. When processing PDFs, not all lines or sections may contain complete information, leading to potential gaps in the final CSV. The required fields ensure that specific, essential pieces of information are always extracted and present in the output.
 
 ### 4. Test the regular expressions
 
