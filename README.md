@@ -31,7 +31,7 @@ regexes = {
 }
 ```
 ### Example of Regular Expression Usage:
-Given the regular expression `regexes = {first_col: r"exemple (\d+) splomx (.+)"}`, the system will:
+Given the regular expression `regexes = {'first_col': r"exemple (\d+) splomx (.+)"}`, the system will:
 
 Capture the first group `(\d+)` as `first_col_1`.
 Capture the second group `(.+)` as `first_col_2`.
