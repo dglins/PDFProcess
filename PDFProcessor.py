@@ -39,6 +39,11 @@ class PDFProcessor:
             # Create the namedtuple dynamically using regex dictionary keys as field names
             self.Line = namedtuple('Line', field_names)
             self.empty_record = self.Line(*([None] * len(self.Line._fields)))
+            # If required_fields is not provided, set it to the first field
+            if not required_fields:
+                required_fields = [field_names[0]]
+
+            self.required_fields = required_fields
         else:
             self.regexes = None
             self.Line = None
