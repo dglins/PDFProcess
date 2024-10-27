@@ -19,45 +19,43 @@ class PDFProcessor:
         self.pdf_file_path = pdf_file_path
         self.csv_file_path = csv_file_path
         self.regex_mode_enabled = regexes is not None
-        self.required_fields = required_fields if required_fields else []
+        self.regexes = regexes
+        self.required_fields = required_fields
 
+    def setup_regex_mode(self):
+        """
+        Sets up regex mode, compiling regexes and creating the namedtuple for line data.
+        This method should be called after initialization if regex processing is required.
+        """
+        if not self.regex_mode_enabled:
+            raise RuntimeError("Regex mode is not enabled.")
 
-        if self.regex_mode_enabled:
-            # Compile regexes inside the constructor if provided
-            self.regexes = self.compile_regexes(regexes)
+        # Compile regexes
+        self.regexes = self.compile_regexes(self.regexes)
 
-            # Dynamically create the field names for namedtuple
-            field_names = []
-            for field, regex in self.regexes.items():
-                num_groups = re.compile(regex).groups
-                if num_groups == 1:
-                    field_names.append(field)  # Single field name
-                else:
-                    # Create field names with suffixes for multiple groups
-                    field_names.extend([f"{field}_{i + 1}" for i in range(num_groups)])
+        # Dynamically create the field names for namedtuple
+        field_names = []
+        for field, regex in self.regexes.items():
+            num_groups = re.compile(regex).groups
+            if num_groups == 1:
+                field_names.append(field)  # Single field name
+            else:
+                # Create field names with suffixes for multiple groups
+                field_names.extend([f"{field}_{i + 1}" for i in range(num_groups)])
 
-            # Create the namedtuple dynamically using regex dictionary keys as field names
-            self.Line = namedtuple('Line', field_names)
-            self.empty_record = self.Line(*([None] * len(self.Line._fields)))
-            # If required_fields is not provided, set it to the first field
-            if not required_fields:
-                required_fields = [field_names[0]]
-
-            self.required_fields = required_fields
-        else:
-            self.regexes = None
-            self.Line = None
-            self.empty_record = None
+        # Create the namedtuple dynamically
+        self.Line = namedtuple('Line', field_names)
+        self.empty_record = self.Line(*([None] * len(self.Line._fields)))
+        
+        # If required_fields is not provided, set it to the first field
+        if not self.required_fields:
+            self.required_fields = [field_names[0]]
 
     def compile_regexes(self, regex_dict: Dict[str, str]) -> Dict[str, re.Pattern]:
         """
         Compiles a dictionary of regex strings into regex patterns.
-
-        :param regex_dict: Dictionary where keys are field names and values are regex strings.
-        :return: A dictionary with compiled regex patterns.
         """
         return {field: re.compile(pattern) for field, pattern in regex_dict.items()}
-
     def parse_record(self, record: namedtuple) -> namedtuple:
         """
         Normalize spaces in each field of the record by collapsing multiple spaces into one.
