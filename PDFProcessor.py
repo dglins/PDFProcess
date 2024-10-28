@@ -19,35 +19,41 @@ class PDFProcessor:
         self.pdf_file_path = pdf_file_path
         self.csv_file_path = csv_file_path
         self.regex_mode_enabled = regexes is not None
-        self.required_fields = required_fields if required_fields else []
-
 
         if self.regex_mode_enabled:
-            # Compile regexes inside the constructor if provided
-            self.regexes = self.compile_regexes(regexes)
-
-            # Dynamically create the field names for namedtuple
-            field_names = []
-            for field, regex in self.regexes.items():
-                num_groups = re.compile(regex).groups
-                if num_groups == 1:
-                    field_names.append(field)  # Single field name
-                else:
-                    # Create field names with suffixes for multiple groups
-                    field_names.extend([f"{field}_{i + 1}" for i in range(num_groups)])
-
-            # Create the namedtuple dynamically using regex dictionary keys as field names
-            self.Line = namedtuple('Line', field_names)
-            self.empty_record = self.Line(*([None] * len(self.Line._fields)))
-            # If required_fields is not provided, set it to the first field
-            if not required_fields:
-                required_fields = [field_names[0]]
-
-            self.required_fields = required_fields
+            self.initialize_regex_mode(regexes, required_fields)
         else:
             self.regexes = None
             self.Line = None
             self.empty_record = None
+
+    def initialize_regex_mode(self, regexes: Dict[str, Pattern], required_fields: Optional[list]):
+        """
+        Initialize regex-related attributes, including compiling regexes, creating namedtuple fields,
+        and setting required fields.
+
+        :param regexes: Dictionary of regex patterns.
+        :param required_fields: List of required fields.
+        """
+
+        self.regexes = self.compile_regexes(regexes)
+
+        # Dynamically create the field names for namedtuple
+        field_names = []
+        for field, regex in self.regexes.items():
+            num_groups = re.compile(regex).groups
+            if num_groups == 1:
+                field_names.append(field)  # Single field name
+            else:
+                # Create field names with suffixes for multiple groups
+                field_names.extend([f"{field}_{i + 1}" for i in range(num_groups)])
+
+        # Create the namedtuple dynamically using regex dictionary keys as field names
+        self.Line = namedtuple('Line', field_names)
+        self.empty_record = self.Line(*([None] * len(self.Line._fields)))
+        
+        # If required_fields is not provided, set it to the first field
+        self.required_fields = required_fields if required_fields else [field_names[0]]
 
     def compile_regexes(self, regex_dict: Dict[str, str]) -> Dict[str, re.Pattern]:
         """
@@ -104,9 +110,6 @@ class PDFProcessor:
         # Check if all required fields are non-null
         return all(getattr(record, field) for field in self.required_fields)
 
-
-
-
     def extract_data_from_line(self, line: str, record: namedtuple) -> namedtuple:
         """
         Check each regex against the line and update the record accordingly.
@@ -122,7 +125,6 @@ class PDFProcessor:
                     # Multiple groups, map to corresponding fields with suffixes
                     record = record._replace(**{f"{field}_{i + 1}": group for i, group in enumerate(groups)})
         return record
-
 
     def preview_regex_try(self, page_from_to: Tuple[int, int] = (0, 5), match_type: str = 'both') -> None:
         """
